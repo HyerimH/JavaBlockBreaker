@@ -19,7 +19,7 @@ public class Ball {
         // 초기 속도 및 각도 설정
         double angle = Math.toRadians(45 + Math.random() * 45); // 45도 ~ 90도 사이 랜덤 각도
         dx = Math.cos(angle) * speed;
-        dy = Math.abs(Math.sin(angle) * speed); // 아래로 가도록 설정
+        dy = -Math.abs(Math.sin(angle) * speed); // 위로 가도록 설정
     }
 
     public void move() {
@@ -35,7 +35,7 @@ public class Ball {
             dy = Math.abs(dy); // 아래로 반사
         }
 
-        if (y >= 600 - radius * 2) { // 화면 아래로 벗어나면
+        if (y >= 800 - radius * 2) { // 화면 아래로 벗어나면
             gameScreen.removeBall(this);
         }
 
@@ -85,26 +85,28 @@ public class Ball {
         // 기존 공의 이동 각도 계산
         double currentAngle = Math.atan2(dy, dx); // 기존 공의 이동 각도
 
-        // 왼쪽 공과 오른쪽 공의 각도 설정
-        double leftAngle = currentAngle - Math.toRadians(15); // -15도
-        double rightAngle = currentAngle + Math.toRadians(15); // +15도
+        // 왼쪽 공과 오른쪽 공의 각도 설정 (아래 방향으로 변경)
+        double leftAngle = currentAngle + Math.toRadians(15); // +15도
+        double rightAngle = currentAngle - Math.toRadians(15); // -15도
 
         // 위치 오프셋 설정 (공 간격을 둠으로써 겹치지 않게)
         double offset = radius + 2; // 공의 반지름 + 약간의 간격
 
-        // 중앙 공: 기존 각도 그대로 유지
+        // 기존 공: 아래 방향으로 각도를 반전
         this.dx = Math.cos(currentAngle) * speed;
-        this.dy = Math.sin(currentAngle) * speed;
+        this.dy = -Math.abs(Math.sin(currentAngle) * speed); // y축 방향 반전
         normalizeSpeed(); // 속도 유지
 
-        // 왼쪽 공 생성
+        // 왼쪽 공 생성 (아래 방향)
         Ball leftBall = new Ball(x - offset, y, gameScreen, speed);
         leftBall.setAngle(leftAngle);
+        leftBall.dy = Math.abs(leftBall.dy); // y축 방향 반전 (아래로)
         leftBall.normalizeSpeed(); // 속도 유지
 
-        // 오른쪽 공 생성
+        // 오른쪽 공 생성 (아래 방향)
         Ball rightBall = new Ball(x + offset, y, gameScreen, speed);
         rightBall.setAngle(rightAngle);
+        rightBall.dy = Math.abs(rightBall.dy); // y축 방향 반전 (아래로)
         rightBall.normalizeSpeed(); // 속도 유지
 
         // 게임 화면에 공 추가

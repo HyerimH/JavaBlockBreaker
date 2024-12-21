@@ -2,8 +2,8 @@ package test;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
 import java.util.Random;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -12,7 +12,13 @@ public class GameScreen extends JPanel implements Runnable {
     private Paddle paddle;
     private CopyOnWriteArrayList<Ball> balls;
     private CopyOnWriteArrayList<Block> blocks;
-    private boolean gameOver = false;
+    private boolean gameOver = false; // 초기 상태에서 게임은 실행 중
+    private boolean gameRunning = true; // 초기 상태에서 게임 실행 상태
+
+    private boolean movingLeft = false; // 왼쪽 이동 플래그
+    private boolean movingRight = false; // 오른쪽 이동 플래그
+    private Timer paddleTimer; // 패들 부드러운 이동용 타이머
+
     private int score = 0;
     private int round = 1;
     private static int highestScore = 0;
@@ -41,26 +47,37 @@ public class GameScreen extends JPanel implements Runnable {
         SwingUtilities.invokeLater(this::requestFocusInWindow);
 
         // 키보드 입력 처리
-        addKeyListener(new KeyListener() {
-            @Override
-            public void keyTyped(KeyEvent e) {}
-
+        addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
                 if (e.getKeyCode() == KeyEvent.VK_LEFT) {
-                    paddle.moveLeft(); // 패들 왼쪽 이동
+                    movingLeft = true; // 왼쪽 이동 시작
                 } else if (e.getKeyCode() == KeyEvent.VK_RIGHT) {
-                    paddle.moveRight(); // 패들 오른쪽 이동
-                } else if (e.getKeyCode() == KeyEvent.VK_SPACE) {
-                    // 스페이스바를 누르면 게임 초기화
-                    resetGame();
+                    movingRight = true; // 오른쪽 이동 시작
                 }
-                repaint(); // 움직임 반영
             }
 
             @Override
-            public void keyReleased(KeyEvent e) {}
+            public void keyReleased(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_LEFT) {
+                    movingLeft = false; // 왼쪽 이동 중지
+                } else if (e.getKeyCode() == KeyEvent.VK_RIGHT) {
+                    movingRight = false; // 오른쪽 이동 중지
+                }
+            }
         });
+
+        // 패들 부드러운 이동 처리
+        paddleTimer = new Timer(10, e -> {
+            if (movingLeft) {
+                paddle.moveLeft();
+            }
+            if (movingRight) {
+                paddle.moveRight();
+            }
+            repaint(); // 이동 후 화면 갱신
+        });
+        paddleTimer.start();
 
         new Thread(this).start(); // 게임 루프 실행
     }
@@ -103,22 +120,24 @@ public class GameScreen extends JPanel implements Runnable {
 
     @Override
     public void run() {
-        while (!gameOver) {
-            for (Ball ball : balls) {
-                ball.move();
-                ball.checkCollision(paddle, blocks);
+        while (true) {
+            if (gameRunning && !gameOver) {
+                for (Ball ball : balls) {
+                    ball.move();
+                    ball.checkCollision(paddle, blocks);
+                }
+
+                repaint();
+
+                if (blocks.isEmpty()) {
+                    round++;
+                    resetBalls();
+                    createBlocks(round);
+                }
+
+                lastScore = score;
+                updateHighestScore();
             }
-
-            repaint();
-
-            if (blocks.isEmpty()) {
-                round++;
-                resetBalls();
-                createBlocks(round);
-            }
-
-            lastScore = score;
-            updateHighestScore();
 
             try {
                 Thread.sleep(10); // 게임 루프 딜레이
@@ -135,6 +154,7 @@ public class GameScreen extends JPanel implements Runnable {
     }
 
     public void gameOver(int finalScore) {
+        gameRunning = false; // 게임 실행 중지
         gameOver = true;
         lastScore = finalScore;
 
@@ -172,6 +192,10 @@ public class GameScreen extends JPanel implements Runnable {
             g.setColor(Color.WHITE);
             g.drawString("Score: " + score, 10, 20);
             g.drawString("Round: " + round, 700, 20);
+        } else {
+            g.setColor(Color.RED);
+            g.setFont(new Font("Arial", Font.BOLD, 24));
+            g.drawString("Press SPACE to Start!", SCREEN_WIDTH / 2 - 150, SCREEN_HEIGHT / 2);
         }
     }
 }

@@ -4,7 +4,7 @@ import java.awt.*;
 
 public class Paddle {
     private int x, y;
-    private final int WIDTH = 200, HEIGHT = 25;
+    private final int WIDTH = 150, HEIGHT = 25;
     private final int speed = 9; // 일정 속도 유지
     private final int SCREEN_WIDTH; // 화면 너비
     private final Color innerColor = new Color(150, 100, 100, 255); // 내부 색상
