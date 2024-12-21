@@ -1,9 +1,11 @@
+package test;
+
 import java.awt.*;
 
 public class Paddle {
     private int x, y;
     private final int WIDTH = 100, HEIGHT = 20;
-    private final int SPEED = 10;
+    private int speed = 15; // 부드러운 이동 속도
 
     public Paddle(int x, int y) {
         this.x = x;
@@ -12,22 +14,18 @@ public class Paddle {
 
     public void moveLeft() {
         if (x > 0) {
-            x -= SPEED;
+            x -= speed;
         }
     }
 
     public void moveRight() {
         if (x + WIDTH < 800) {
-            x += SPEED;
+            x += speed;
         }
     }
 
-    // 마우스로 라켓 위치 이동
-    public void moveTo(int mouseX) {
-        // 마우스 위치에 따라 라켓이 이동
-        if (mouseX > 0 && mouseX < 800 - WIDTH) {
-            this.x = mouseX - WIDTH / 2; // 마우스 중앙에 라켓이 위치하게 조정
-        }
+    public Rectangle getBounds() {
+        return new Rectangle(x, y, WIDTH, HEIGHT);
     }
 
     public void draw(Graphics g) {
@@ -35,7 +33,15 @@ public class Paddle {
         g.fillRect(x, y, WIDTH, HEIGHT);
     }
 
-    public Rectangle getBounds() {
-        return new Rectangle(x, y, WIDTH, HEIGHT);
+    public int getX() {
+        return x;
+    }
+
+    public int getY() {
+        return y;
+    }
+
+    public int getWidth() {
+        return WIDTH;
     }
 }

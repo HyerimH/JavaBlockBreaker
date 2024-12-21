@@ -1,14 +1,16 @@
+package test;
+
 import java.awt.*;
 
 public class Block {
     private int x, y, width, height;
     private Color color;
 
-    public Block(int x, int y, Color color) {
+    public Block(int x, int y, int width, int height, Color color) {
         this.x = x;
         this.y = y;
-        this.width = 100;  // 블록의 너비
-        this.height = 30;  // 블록의 높이
+        this.width = width;
+        this.height = height;
         this.color = color;
     }
 
@@ -23,5 +25,7 @@ public class Block {
     public void draw(Graphics g) {
         g.setColor(color);
         g.fillRect(x, y, width, height);
+        g.setColor(Color.BLACK);
+        g.drawRect(x, y, width, height);
     }
 }
