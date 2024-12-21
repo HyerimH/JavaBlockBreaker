@@ -1,129 +1,138 @@
+package test;
+
 import java.awt.*;
 import java.util.List;
-import java.util.ArrayList;
-import java.util.Random;
 
 public class Ball {
-    private int x, y, dx, dy, radius;
-    private int speedFactor = 1; // 공 속도 조절
-    private int score = 0; // 점수 추가
-    private int round = 1; // 현재 라운드
-    private List<Ball> balls = new ArrayList<>(); // 공이 여러 개로 나누어질 때 사용
-    private GameScreen gameScreen; // GameScreen 객체 참조
+    private double x, y; // 공의 위치
+    private double dx, dy; // 공의 이동 방향
+    private final int radius = 4; // 공의 반지름
+    private final double speed; // 공의 고정 속도 (라운드 동안 일정)
+    private GameScreen gameScreen;
 
-    public Ball(int x, int y, GameScreen gameScreen) {
+    public Ball(double x, double y, GameScreen gameScreen, double initialSpeed) {
         this.x = x;
         this.y = y;
-        this.radius = 10;
-        this.dx = 2;  // 초기 속도
-        this.dy = -2;
-        this.gameScreen = gameScreen; // GameScreen 객체 전달받아 저장
-        balls.add(this); // 처음엔 하나의 공만 존재
+        this.gameScreen = gameScreen;
+        this.speed = initialSpeed; // 라운드 시작 시 공의 속도 설정
+
+        // 초기 속도 및 각도 설정
+        double angle = Math.toRadians(45 + Math.random() * 45); // 45도 ~ 90도 사이 랜덤 각도
+        dx = Math.cos(angle) * speed;
+        dy = Math.abs(Math.sin(angle) * speed); // 아래로 가도록 설정
     }
 
     public void move() {
-        List<Ball> newBalls = new ArrayList<>(); // 공을 여러 개로 나눌 때 새로운 리스트
+        x += dx;
+        y += dy;
 
-        for (Ball b : balls) {
-            b.x += b.dx * speedFactor;
-            b.y += b.dy * speedFactor;
-
-            // 화면 밖으로 나가지 않도록 처리
-            if (b.x <= 0 || b.x >= 800 - radius) { // 좌우 벽 충돌
-                b.dx = -b.dx;
-            }
-            if (b.y <= 0) { // 상단 벽 충돌
-                b.dy = -b.dy;
-            }
-            if (b.y >= 600 - radius) { // 하단 벽 (게임 오버 조건)
-                gameScreen.gameOver(score); // GameScreen의 gameOver() 메서드 호출
-            }
+        // 벽과 충돌 처리
+        if (x <= 0 || x >= 800 - radius * 2) {
+            reflectX(); // x 방향 반사
         }
 
-        balls = newBalls; // 업데이트된 공 리스트 반영
+        if (y <= 0) { // 천장에 닿으면
+            dy = Math.abs(dy); // 아래로 반사
+        }
+
+        if (y >= 600 - radius * 2) { // 화면 아래로 벗어나면
+            gameScreen.removeBall(this);
+        }
+
+        normalizeSpeed(); // 항상 동일한 속도 유지
+    }
+
+    private void reflectX() {
+        dx = -dx;
+        normalizeSpeed(); // 속도 유지
     }
 
     public void checkCollision(Paddle paddle, List<Block> blocks) {
-        // 공과 라켓의 충돌 체크
-        for (Ball b : balls) {
-            if (new Rectangle(b.x, b.y, radius, radius).intersects(paddle.getBounds())) {
-                b.dy = -b.dy; // 공이 라켓에 튕겨나감
-            }
+        // 패들과의 충돌
+        if (getBounds().intersects(paddle.getBounds())) {
+            dy = -Math.abs(dy); // 위로 튕기도록 설정
 
-            // 블록과의 충돌 처리
-            for (int i = 0; i < blocks.size(); i++) {
-                Block block = blocks.get(i);
-                if (new Rectangle(b.x, b.y, radius, radius).intersects(block.getBounds())) {
-                    blocks.remove(i); // 블록 제거
-                    b.dy = -b.dy; // 공이 블록에 튕겨나감
-                    score += 10; // 블록을 깨면 10점 추가
+            // 패들 위치에 따라 공의 dx 값을 조정
+            int paddleX = paddle.getX();
+            int paddleWidth = paddle.getWidth();
+            int ballCenter = (int) (x + radius);
 
-                    // 노란색 블록과 충돌 시, 공이 3개로 나뉨
-                    if (block.getColor() == Color.YELLOW) {
-                        createExtraBalls(b.x, b.y); // 공을 3개로 나누는 함수 호출
-                    }
+            double hitPosition = (double) (ballCenter - paddleX) / paddleWidth; // 0.0 ~ 1.0 범위
+            dx = (hitPosition - 0.5) * 2 * speed; // -speed ~ +speed 범위로 dx 설정
+
+            normalizeSpeed(); // 속도 유지
+        }
+
+        // 블록과의 충돌
+        for (Block block : blocks) {
+            if (getBounds().intersects(block.getBounds())) {
+                blocks.remove(block);
+                gameScreen.addScore(10); // 점수 추가
+
+                // 노란 블록의 경우 공 분열
+                if (block.isYellow()) {
+                    splitBall();
                 }
-            }
-        }
 
-        // 모든 블록을 깨면 라운드 업
-        if (blocks.isEmpty()) {
-            round++;
-            resetBlocks(); // 새 라운드 블록 생성
-            increaseSpeed(); // 라운드마다 공 속도 증가
+                // 항상 아래로 반사
+                dy = Math.abs(dy); // 아래로 반사
+                break;
+            }
         }
     }
 
-    // 공이 3개로 나누어지는 함수
-    private void createExtraBalls(int x, int y) {
-        balls.add(new Ball(x - 5, y, gameScreen)); // 좌측으로 나가는 공
-        balls.add(new Ball(x + 5, y, gameScreen)); // 우측으로 나가는 공
+    private void splitBall() {
+        // 기존 공의 이동 각도 계산
+        double currentAngle = Math.atan2(dy, dx); // 기존 공의 이동 각도
+
+        // 왼쪽 공과 오른쪽 공의 각도 설정
+        double leftAngle = currentAngle - Math.toRadians(15); // -15도
+        double rightAngle = currentAngle + Math.toRadians(15); // +15도
+
+        // 위치 오프셋 설정 (공 간격을 둠으로써 겹치지 않게)
+        double offset = radius + 2; // 공의 반지름 + 약간의 간격
+
+        // 중앙 공: 기존 각도 그대로 유지
+        this.dx = Math.cos(currentAngle) * speed;
+        this.dy = Math.sin(currentAngle) * speed;
+        normalizeSpeed(); // 속도 유지
+
+        // 왼쪽 공 생성
+        Ball leftBall = new Ball(x - offset, y, gameScreen, speed);
+        leftBall.setAngle(leftAngle);
+        leftBall.normalizeSpeed(); // 속도 유지
+
+        // 오른쪽 공 생성
+        Ball rightBall = new Ball(x + offset, y, gameScreen, speed);
+        rightBall.setAngle(rightAngle);
+        rightBall.normalizeSpeed(); // 속도 유지
+
+        // 게임 화면에 공 추가
+        gameScreen.addBall(leftBall);
+        gameScreen.addBall(rightBall);
     }
 
-    // 라운드가 바뀌면 새로운 블록을 생성
-    private void resetBlocks() {
-        // 라운드마다 블록의 크기와 개수가 달라짐
-        int blockSize = 800 / (round * 3); // 가로 세로 크기
-        int verticalBlocks = 600 / (round * 3); // 세로 블록 수
-        Random rand = new Random();
-
-        List<Block> newBlocks = new ArrayList<>();
-        for (int i = 0; i < round * 3; i++) {
-            for (int j = 0; j < round * 3; j++) {
-                int blockX = i * blockSize;
-                int blockY = j * (600 / (round * 3));
-
-                // 블록의 색상 랜덤 설정 (50% 확률로 노란색과 보라색 블록 설정)
-                Color blockColor = rand.nextBoolean() ? Color.YELLOW : Color.MAGENTA;
-
-                newBlocks.add(new Block(blockX, blockY, blockSize, blockSize, blockColor));
-            }
+    private void normalizeSpeed() {
+        // 현재 속도를 계산하고, speed에 맞게 방향 벡터 조정
+        double currentSpeed = Math.sqrt(dx * dx + dy * dy);
+        if (currentSpeed != speed) { // 속도가 다르면 조정
+            dx = (dx / currentSpeed) * speed;
+            dy = (dy / currentSpeed) * speed;
         }
+    }
 
-        gameScreen.setBlocks(newBlocks); // GameScreen에서 블록 갱신
+    public void setAngle(double angle) {
+        dx = Math.cos(angle) * speed;
+        dy = Math.sin(angle) * speed;
+        normalizeSpeed(); // 속도 유지
     }
 
     public void draw(Graphics g) {
-        for (Ball b : balls) {
-            g.setColor(Color.WHITE);
-            g.fillOval(b.x, b.y, radius, radius);
-        }
+        g.setColor(Color.WHITE);
+        g.fillOval((int) x, (int) y, radius * 2, radius * 2);
     }
 
-    // 공 속도 증가 메서드
-    public void increaseSpeed() {
-        speedFactor++; // 공의 속도 증가
-        dx *= 1.1; // 공의 수평 속도 증가
-        dy *= 1.1; // 공의 수직 속도 증가
-    }
-
-    // 점수 반환
-    public int getScore() {
-        return score;
-    }
-
-    // 라운드 반환
-    public int getRound() {
-        return round;
+    public Rectangle getBounds() {
+        return new Rectangle((int) x, (int) y, radius * 2, radius * 2);
     }
 }
